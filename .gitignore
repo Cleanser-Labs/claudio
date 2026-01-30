@@ -1,0 +1,16 @@
+# Audio files
+*.wav
+*.aiff
+*.mp3
+
+# DuckDB
+*.duckdb
+*.duckdb.wal
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Logs
+.claudio/

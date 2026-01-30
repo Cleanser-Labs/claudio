@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "claudio": {
+      "command": "claudio-server",
+      "args": ["--mcp"],
+      "env": {}
+    }
+  }
+}

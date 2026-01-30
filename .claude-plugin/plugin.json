@@ -1,0 +1,10 @@
+{
+  "name": "claudio",
+  "description": "Voice I/O for Claude Code - speak to users and hear their voice input",
+  "version": "0.1.0",
+  "author": {
+    "name": "Cleanser Labs"
+  },
+  "homepage": "https://github.com/cleanser-labs/claudio",
+  "repository": "https://github.com/cleanser-labs/claudio"
+}

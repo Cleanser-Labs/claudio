@@ -1,0 +1,49 @@
+# TTS Benchmarks
+
+# Run quick benchmark (default voices, short texts)
+quick:
+  uv run python tts_bench.py run -b say -b avfoundation -t short -t medium -n 3
+
+# Run full benchmark suite
+full:
+  uv run python tts_bench.py run \
+    -b say -b avfoundation \
+    -v Samantha -v Daniel -v Karen \
+    -t tiny -t short -t medium -t long \
+    -n 5
+
+# Run with chunking tests
+chunked:
+  uv run python tts_bench.py run \
+    -b say -b avfoundation \
+    -t long \
+    -c 50 -c 100 -c 200 \
+    -n 3
+
+# Compare say vs avfoundation
+compare:
+  uv run python tts_bench.py compare say avfoundation
+
+# Show report
+report:
+  uv run python tts_bench.py report
+
+# Show recent runs
+recent:
+  uv run python tts_bench.py report --last 20
+
+# Export to parquet
+export-parquet:
+  uv run python tts_bench.py export results.parquet
+
+# Export to CSV
+export-csv:
+  uv run python tts_bench.py export results.csv
+
+# Clean all data
+clean:
+  uv run python tts_bench.py clean
+
+# Run custom benchmark
+bench *ARGS:
+  uv run python tts_bench.py run {{ARGS}}

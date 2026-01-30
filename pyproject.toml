@@ -1,0 +1,86 @@
+[project]
+name = "claudio"
+version = "0.1.0"
+description = "Voice I/O for Claude Code - Cleanser Labs Audio"
+requires-python = ">=3.11"
+dependencies = [
+    # core
+    "msgspec>=0.18",
+    "numpy>=1.26",
+    "sounddevice>=0.4",
+    "httpx>=0.27",
+    "starlette>=0.40",
+    "uvicorn>=0.30",
+    "typer>=0.12",
+    "rich>=13.0",
+    # macos
+    "pyobjc-framework-avfoundation>=12.1",
+    # logging
+    "duckdb>=1.4.3",
+    "pyarrow>=23.0.0",
+    # tts
+    "mlx-audio>=0.3.1",
+    "transformers>=5.0.0rc3,<6",
+    "spacy>=3.7,<4",
+    "misaki[en]",
+    "en-core-web-sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl",
+    "pocket-tts>=0.1",
+    # config
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+soprano = [
+    "soprano-tts>=0.2.0",
+]
+asr = [
+    "parakeet-mlx>=0.1",
+]
+triggers = [
+    "pynput>=1.7",
+    "openwakeword>=0.6",
+]
+server = [
+    "claudio[asr]",
+]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+    "pytest-benchmark>=4.0",
+]
+# all optional extras
+all = [
+    "claudio[soprano,asr,triggers]",
+]
+
+[project.scripts]
+claudio = "claudio.cli:main"
+claudio-server = "claudio.server:main"
+claudio-proxy = "claudio.proxy:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/claudio"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+]
+
+[tool.uv]
+prerelease = "allow"
+
+[tool.ruff]
+line-length = 88
+indent-width = 2
+
+[tool.ruff.format]
+quote-style = "single"
