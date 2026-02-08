@@ -25,32 +25,21 @@ dependencies = [
     "misaki[en]",
     "en-core-web-sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl",
     "pocket-tts>=0.1",
+    "soprano-tts>=0.2.0",
+    # asr
+    "parakeet-mlx>=0.1",
+    # triggers
+    "pynput>=1.7",
+    "openwakeword>=0.6",
     # config
     "pyyaml>=6.0",
 ]
 
 [project.optional-dependencies]
-soprano = [
-    "soprano-tts>=0.2.0",
-]
-asr = [
-    "parakeet-mlx>=0.1",
-]
-triggers = [
-    "pynput>=1.7",
-    "openwakeword>=0.6",
-]
-server = [
-    "claudio[asr]",
-]
 dev = [
     "pytest>=8.0",
     "pytest-asyncio>=0.23",
     "pytest-benchmark>=4.0",
-]
-# all optional extras
-all = [
-    "claudio[soprano,asr,triggers]",
 ]
 
 [project.scripts]

@@ -1,6 +1,16 @@
 # Claudio
 
-Voice I/O for Claude Code. A local TTS proxy that gives Claude a voice — stream responses as speech, route to multiple providers, and log everything.
+Voice I/O for Claude Code.
+
+```bash
+uv tool install git+https://github.com/cleanser-labs/claudio
+claudio init    # picks the best TTS for your system
+claudio         # launches Claude Code with voice
+```
+
+## How It Works
+
+`claudio` starts a local proxy, sets `ANTHROPIC_BASE_URL`, and launches Claude Code. Claude uses `<say>` tags to control what gets spoken — tags are stripped before reaching your terminal. You see clean text, hear the voice.
 
 ```
 you ──► claudio proxy ──► anthropic / openai / local LLM
@@ -13,18 +23,6 @@ you ──► claudio proxy ──► anthropic / openai / local LLM
 
 ## Install
 
-Install as a CLI tool with [uv](https://docs.astral.sh/uv/):
-
-```bash
-uv tool install git+https://github.com/cleanser-labs/claudio
-```
-
-This gives you the `claudio` command globally. To upgrade:
-
-```bash
-uv tool upgrade claudio
-```
-
 ### From source
 
 ```bash
@@ -33,99 +31,31 @@ cd claudio
 uv sync
 ```
 
-### Extras
-
-TTS backends and optional features are available as extras:
+## Usage
 
 ```bash
-# Install with a specific TTS backend
-uv tool install "claudio[kokoro] @ git+https://github.com/cleanser-labs/claudio"
-uv tool install "claudio[pocket] @ git+https://github.com/cleanser-labs/claudio"
-uv tool install "claudio[soprano] @ git+https://github.com/cleanser-labs/claudio"
-uv tool install "claudio[qwen3] @ git+https://github.com/cleanser-labs/claudio"
-
-# Install with YAML config support
-uv tool install "claudio[config] @ git+https://github.com/cleanser-labs/claudio"
-
-# Install with hotkeys and wake word detection
-uv tool install "claudio[triggers] @ git+https://github.com/cleanser-labs/claudio"
-
-# Install everything
-uv tool install "claudio[all] @ git+https://github.com/cleanser-labs/claudio"
-```
-
-Or from a local checkout:
-
-```bash
-uv sync --extra kokoro          # Kokoro — fast neural TTS (recommended)
-uv sync --extra pocket          # Pocket-TTS — CPU-friendly, voice cloning
-uv sync --extra soprano         # Soprano — neural TTS with vocoder
-uv sync --extra qwen3           # Qwen3-TTS — highest quality (needs GPU)
-uv sync --extra triggers        # Hotkeys + wake word detection
-uv sync --extra config          # YAML config (claudio.yaml)
-uv sync --all-extras            # Everything
-```
-
-| Extra | What it adds |
-|-------|-------------|
-| `kokoro` | Kokoro 82M TTS (fast, good quality) |
-| `pocket` | Pocket-TTS 100M (CPU-friendly, voice cloning) |
-| `soprano` | Soprano neural TTS |
-| `qwen3` | Qwen3-TTS 1.7B (best quality, needs GPU) |
-| `asr` | Speech recognition (Parakeet) |
-| `triggers` | Hotkeys (pynput) + wake words (openWakeWord) |
-| `config` | YAML config file support (pyyaml) |
-| `server` | ASR server mode |
-| `all` | Everything above |
-
-On macOS, the `say` and `avfoundation` backends work out of the box with no extra installs.
-
-## Quick Start
-
-### 1. Start the proxy
-
-```bash
-# Basic — speaks Claude responses via <say> tags
-claudio proxy
-
-# With a specific TTS backend and voice
-claudio proxy --tts kokoro --voice nova
-
-# With YAML config (multi-destination, logging, etc.)
-claudio proxy --config claudio.yaml
-```
-
-### 2. Point Claude at the proxy
-
-```bash
-export ANTHROPIC_BASE_URL=http://127.0.0.1:9000
-```
-
-Or use the launcher which does this automatically:
-
-```bash
-claudio                          # Launches Claude Code with voice
+claudio                          # Launch Claude with voice
 claudio --speak auto             # Speak all text (not just <say> tags)
-claudio --persona narrator       # Use a persona with its voice settings
+claudio --tts kokoro --voice nova # Pick backend and voice
+claudio --speed 1.2              # Faster speech
+claudio --persona narrator       # Use a persona
 ```
 
-### 3. Claude speaks
+### Standalone proxy
 
-Claude uses `<say>` tags to control what gets spoken:
-
-```xml
-<say>Found the bug — there's a missing return statement on line 42.</say>
-
-```python
-def get_user(id):
-    user = db.query(id)
-    return user  # was missing
+```bash
+claudio proxy                        # Start proxy server
+claudio proxy --config claudio.yaml  # With YAML config
+claudio proxy --port 8080            # Custom port
 ```
 
-<say>I added the return. Try running the tests now.</say>
-```
+### Voice discovery
 
-Tags are stripped before the response reaches your terminal. You see clean text, hear the voice.
+```bash
+claudio voices                       # List available voices
+claudio try                          # Test default voice
+claudio try --voice nova             # Test specific voice
+```
 
 ## Features
 
