@@ -9,7 +9,6 @@ Use `<say>` tags for speech. Tags are stripped before display:
 ```xml
 <say>Found the bug - missing null check on line 42.</say>
 <say speed="fast">Quick update.</say>
-<say visible="false">This is spoken but not shown to user.</say>
 ```
 
 ## Quick Reference
@@ -17,7 +16,8 @@ Use `<say>` tags for speech. Tags are stripped before display:
 ```bash
 claudio                              # Launch Claude with voice
 claudio --speak tags                 # Only speak <say> tags (default)
-claudio --speak auto                 # Speak all text, skip code
+claudio --speak text                 # Speak all text, skip code
+claudio --speak all                  # Speak everything incl. code
 claudio --speak off                  # No TTS
 claudio --tts kokoro --voice nova    # Backend and voice
 claudio --speed 1.2                  # Faster speech
@@ -38,7 +38,7 @@ claudio proxy --port 8080            # Custom port
 ## Options
 
 **Speech:**
-- `--speak`: tags (default), auto, all, off
+- `--speak`: tags (default), text, all, off
 - `--notify`: tools, approval, or comma-separated tool names
 
 **TTS:**

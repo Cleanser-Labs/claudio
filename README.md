@@ -22,13 +22,38 @@ uv sync
 
 ```bash
 claudio                              # Launch Claude with voice
-claudio --speak auto                 # Speak all text (not just <say> tags)
+claudio --speak text                 # Speak all text, skip code blocks
 claudio --tts kokoro --voice nova    # Pick backend and voice
 claudio --speed 1.2                  # Faster speech
 claudio --persona narrator           # Use a persona
 claudio voices                       # List available voices
 claudio try --voice nova             # Audition a voice
 ```
+
+## Using with raw `claude`
+
+You can run the proxy standalone and point any Claude Code session at it:
+
+```bash
+# Terminal 1: start the proxy
+claudio proxy --speak text
+
+# Terminal 2: launch claude with the proxy
+ANTHROPIC_BASE_URL=http://127.0.0.1:9000 claude
+```
+
+The proxy intercepts Claude API traffic, extracts text, and speaks it through your configured TTS engine. All other API behavior is unchanged.
+
+### Speak modes
+
+| Mode | Flag | Behavior |
+|------|------|----------|
+| `tags` | `--speak tags` | Only speaks text inside `<say>...</say>` tags (default). Claude needs a system prompt telling it to use `<say>` tags — `claudio` injects this automatically, but with raw `claude` you'll need to add it yourself. |
+| `text` | `--speak text` | Speaks all text automatically, skips code blocks and JSON. No special prompting needed. |
+| `all` | `--speak all` | Speaks everything including code blocks. |
+| `off` | `--speak off` | TTS disabled, proxy just forwards requests. |
+
+For most setups with raw `claude`, `--speak text` is the easiest since it requires no prompt changes.
 
 ## Guides
 

@@ -58,7 +58,7 @@ tts:
 proxy:
   host: 127.0.0.1
   port: 9000
-  speak_mode: markers   # auto, markers, off
+  speak_mode: tags      # tags, text, all, off
   notify: null          # tools, approval, or comma-separated names
 ```
 
@@ -126,12 +126,13 @@ General proxy server settings.
 |-------|------|---------|-------------|
 | `host` | string | `127.0.0.1` | Listen address |
 | `port` | int | `9000` | Listen port |
-| `speak_mode` | string | `markers` | TTS mode |
+| `speak_mode` | string | `tags` | TTS mode |
 | `notify` | string | null | Tool notification config |
 
 **Speak modes:**
-- `auto` - Speak all response text
-- `markers` - Only speak `<say>...</say>` content
+- `tags` - Only speak `<say>...</say>` content (default)
+- `text` - Speak all text, skip code blocks and JSON
+- `all` - Speak everything including code
 - `off` - No TTS
 
 **Notify options:**
@@ -166,7 +167,7 @@ tts:
   speed: 1.2
 
 proxy:
-  speak_mode: auto  # Hear everything
+  speak_mode: text  # Hear everything (skip code)
 ```
 
 ### Production Multi-Provider
@@ -203,7 +204,7 @@ tts:
 
 proxy:
   port: 9000
-  speak_mode: markers
+  speak_mode: tags
   notify: approval
 ```
 
@@ -239,7 +240,7 @@ claudio proxy --config claudio.yaml --port 8080
 claudio proxy --tts kokoro --voice nova --speed 1.2
 
 # Override speak mode
-claudio proxy --speak auto
+claudio proxy --speak text
 ```
 
 ## Environment Variables

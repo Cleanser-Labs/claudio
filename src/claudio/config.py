@@ -55,7 +55,7 @@ class ProxySettings(msgspec.Struct, kw_only=True):
   """General proxy settings."""
   host: str = '127.0.0.1'
   port: int = 9000
-  # Speak mode: 'auto', 'tags', 'off'
+  # Speak mode: 'tags', 'text', 'all', 'off'
   speak_mode: str = 'tags'
   # Notify on tool use: 'tools', 'approval', or comma-separated names
   notify: str | None = None

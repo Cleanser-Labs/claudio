@@ -43,7 +43,6 @@ You have text-to-speech enabled. Use `<say>` tags to speak to the user. Tags can
 <say>You can wrap multiple lines
 of text in a single tag.</say>
 <say speed="fast">Quick updates like this.</say>
-<say visible="false">Spoken but hidden from text output.</say>
 ```
 
 ## Example Response
@@ -60,7 +59,7 @@ def get_users():
 ```
 '''.strip()
 
-VOICE_SKILL_AUTO = '''
+VOICE_SKILL_TEXT = '''
 # Voice Output
 
 Text-to-speech is enabled. All your text responses are spoken automatically.
@@ -72,9 +71,9 @@ def _get_voice_skill(speak_mode: str) -> str | None:
   """Get voice skill instructions for Claude based on speak mode."""
   if speak_mode == 'tags':
     return VOICE_SKILL_TAGS
-  elif speak_mode == 'auto':
-    return VOICE_SKILL_AUTO
-  # 'all' mode doesn't need special instructions
+  elif speak_mode == 'text':
+    return VOICE_SKILL_TEXT
+  # 'all' and 'off' modes don't need special instructions
   return None
 
 
@@ -1981,7 +1980,7 @@ def proxy_start(
   host: Annotated[str, typer.Option('-h', '--host')] = '127.0.0.1',
   port: Annotated[int, typer.Option('-p', '--port')] = 9000,
   device: Annotated[Optional[int], typer.Option('-d', '--device', help='Output device ID')] = None,
-  speak: Annotated[str, typer.Option('-s', '--speak', help='Speak mode: auto, tags, off')] = 'tags',
+  speak: Annotated[str, typer.Option('-s', '--speak', help='Speak mode: tags, text, all, off')] = 'tags',
   tts: Annotated[str, typer.Option('-t', '--tts', help='TTS backend: auto, say, soprano')] = 'auto',
   voice: Annotated[Optional[str], typer.Option('-v', '--voice', help='Voice name (for say backend)')] = None,
   speed: Annotated[float, typer.Option('--speed', help='Speech speed multiplier')] = 1.0,
@@ -2045,7 +2044,7 @@ def callback(
   voice: Annotated[Optional[str], typer.Option('-v', '--voice', help='Voice name')] = None,
   speed: Annotated[Optional[float], typer.Option('--speed', help='Speech speed multiplier')] = None,
   # Speech mode
-  speak: Annotated[Optional[str], typer.Option('-s', '--speak', help='Speak mode: tags, auto, all, off')] = None,
+  speak: Annotated[Optional[str], typer.Option('-s', '--speak', help='Speak mode: tags, text, all, off')] = None,
   # Notifications
   notify: Annotated[Optional[str], typer.Option('-n', '--notify', help='Notify on: tools, approval, or tool names (comma-sep)')] = None,
   # ASR options
@@ -2064,8 +2063,8 @@ def callback(
 
   Examples:
     claudio                      # Start with proxy + TTS (tags mode)
-    claudio --speak all          # Speak everything
-    claudio --speak auto         # Smart mode (skip code)
+    claudio --speak text         # Speak text, skip code
+    claudio --speak all          # Speak everything incl. code
     claudio --notify tools       # Announce tool usage
     claudio --tts say --voice Daniel
     claudio --persona claude     # Use the 'claude' persona
@@ -2081,13 +2080,21 @@ def callback(
     from claudio.config import ClaudioConfig
     cfg = ClaudioConfig()
 
-  # Speak mode map: config uses proxy speak_mode names, CLI uses different names
-  speak_mode_map = {'tags': 'tags', 'auto': 'auto', 'off': 'off'}
+  # Speak mode map: config uses proxy speak_mode names, CLI uses same names
+  speak_mode_map = {'tags': 'tags', 'text': 'text', 'all': 'all', 'off': 'off'}
+
+  # Auto-detect backend from voice name if --tts not explicitly set
+  resolved_tts = tts or cfg.tts.backend
+  resolved_voice = voice or cfg.tts.voice
+  if not tts and voice:
+    detected = _find_backend_for_voice(voice)
+    if detected:
+      resolved_tts = detected
 
   _launch_claude(
     mode=mode,
-    tts=tts or cfg.tts.backend,
-    voice=voice or cfg.tts.voice,
+    tts=resolved_tts,
+    voice=resolved_voice,
     speed=speed if speed is not None else cfg.tts.speed,
     speak=speak or speak_mode_map.get(cfg.proxy.speak_mode, 'tags'),
     notify=notify or cfg.proxy.notify,
@@ -2184,8 +2191,10 @@ def _launch_claude(
         speak_display = f'[cyan]{speak}[/cyan]'
         if speak == 'tags':
           speak_display += ' [dim](<say> tags)[/dim]'
-        elif speak == 'auto':
+        elif speak == 'text':
           speak_display += ' [dim](all text, skip code)[/dim]'
+        elif speak == 'all':
+          speak_display += ' [dim](everything incl. code)[/dim]'
         console.print(f'  Speak:   {speak_display}')
         if notify:
           console.print(f'  Notify:  [cyan]{notify}[/cyan]')
@@ -2243,9 +2252,8 @@ def _start_proxy(
   session: str = 'default',
 ) -> subprocess.Popen:
   """Start proxy server in background, wait for it to be ready."""
-  # Map speak modes to proxy speak modes
-  # tags -> tags, auto -> auto, all -> auto, off -> off
-  proxy_speak = {'tags': 'tags', 'auto': 'auto', 'all': 'auto', 'off': 'off'}.get(speak, 'tags')
+  # Map speak modes to proxy speak modes (1:1 now)
+  proxy_speak = {'tags': 'tags', 'text': 'text', 'all': 'all', 'off': 'off'}.get(speak, 'tags')
 
   cmd = [
     sys.executable, '-m', 'claudio.proxy',

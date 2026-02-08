@@ -92,9 +92,8 @@ class ProxyConfig(msgspec.Struct, kw_only=True):
   anthropic_url: str = 'https://api.anthropic.com'
   listen_host: str = '127.0.0.1'
   listen_port: int = 9000
-  # Speak mode: 'auto' (all text), 'tags' (<say>...</say> only), 'off'
+  # Speak mode: 'text' (all text, skip code), 'tags' (<say>...</say> only), 'all' (everything), 'off'
   speak_mode: str = 'tags'
-  speak_code: bool = False  # Don't speak code blocks
   min_sentence_length: int = 10  # Min chars before speaking
   # Notify: 'tools', 'approval', or comma-separated tool names
   notify: str | None = None
@@ -232,20 +231,34 @@ def strip_say_tags(text: str, strip_invisible: bool = True) -> str:
   """Remove <say> tags but keep their content.
 
   If strip_invisible=True, also removes content of <say visible="false"> tags entirely.
+  Preserves tags inside backtick-enclosed code (inline ` and fenced ```).
   """
+  # Protect backtick-enclosed content from stripping
+  _placeholders: list[str] = []
+  def _protect(m):
+    _placeholders.append(m.group(0))
+    return f'\x00{len(_placeholders) - 1}\x00'
+
+  protected = re.sub(r'```.*?```', _protect, text, flags=re.DOTALL)
+  protected = re.sub(r'`[^`]+`', _protect, protected)
+
   if strip_invisible:
     # First, remove invisible blocks entirely (content and tags)
-    text = re.sub(
+    protected = re.sub(
       r'<say\s+[^>]*visible\s*=\s*["\']false["\'][^>]*>.*?</say\s*>',
       '',
-      text,
+      protected,
       flags=re.IGNORECASE | re.DOTALL,
     )
   # Remove remaining opening tags
-  text = SAY_OPEN.sub('', text)
+  protected = SAY_OPEN.sub('', protected)
   # Remove closing tags
-  text = SAY_CLOSE.sub('', text)
-  return text
+  protected = SAY_CLOSE.sub('', protected)
+
+  # Restore protected content
+  for i, orig in enumerate(_placeholders):
+    protected = protected.replace(f'\x00{i}\x00', orig)
+  return protected
 
 
 class SentenceBuffer:
@@ -255,8 +268,9 @@ class SentenceBuffer:
   SENTENCE_END = re.compile(r'[.!?]\s*$')
   CODE_BLOCK = re.compile(r'```')
 
-  def __init__(self, on_sentence: callable):
+  def __init__(self, on_sentence: callable, skip_code: bool = True):
     self.on_sentence = on_sentence
+    self.skip_code = skip_code
     self._buffer = ''
     self._in_code_block = False
 
@@ -264,17 +278,18 @@ class SentenceBuffer:
     """Add text to buffer, emit sentences as they complete."""
     self._buffer += text
 
-    # Track code blocks
-    code_matches = list(self.CODE_BLOCK.finditer(self._buffer))
-    if len(code_matches) % 2 == 1:
-      self._in_code_block = True
-      return
-    else:
-      self._in_code_block = False
+    if self.skip_code:
+      # Track code blocks
+      code_matches = list(self.CODE_BLOCK.finditer(self._buffer))
+      if len(code_matches) % 2 == 1:
+        self._in_code_block = True
+        return
+      else:
+        self._in_code_block = False
 
-    # Don't emit while in code block
-    if self._in_code_block:
-      return
+      # Don't emit while in code block
+      if self._in_code_block:
+        return
 
     # Find sentence boundaries
     while True:
@@ -292,7 +307,7 @@ class SentenceBuffer:
 
   def flush(self):
     """Flush remaining buffer."""
-    if self._buffer.strip() and not self._in_code_block:
+    if self._buffer.strip() and (not self.skip_code or not self._in_code_block):
       self.on_sentence(self._buffer.strip())
       self._buffer = ''
 
@@ -307,16 +322,51 @@ class MarkerBuffer:
     self._buffer = ''
     self._in_tag = False
     self._attrs = {}
+    self._in_code_fence = False
 
   def add(self, text: str):
-    """Add text, stream sentences from tags."""
+    """Add text, stream sentences from tags.
+
+    Skips <say> detection inside backtick-enclosed code (` and ```).
+    """
     self._buffer += text
 
     while True:
+      # Handle code fences: consume everything until closing ```
+      if self._in_code_fence:
+        close = self._buffer.find('```')
+        if close == -1:
+          # Still in code fence, keep last 3 chars for partial ```
+          if len(self._buffer) > 3:
+            self._buffer = self._buffer[-3:]
+          break
+        self._buffer = self._buffer[close + 3:]
+        self._in_code_fence = False
+        continue
+
       if not self._in_tag:
-        # Look for opening tag
+        # Check for code fence before say tag
+        fence_pos = self._buffer.find('```')
         match = SAY_OPEN.search(self._buffer)
+
+        if fence_pos != -1 and (match is None or fence_pos < match.start()):
+          # Code fence starts before any <say> tag
+          self._buffer = self._buffer[fence_pos + 3:]
+          self._in_code_fence = True
+          continue
+
         if match:
+          # Check if inside inline backticks
+          prefix = self._buffer[:match.start()]
+          if prefix.count('`') % 2 == 1:
+            # Inside inline code - skip past closing backtick
+            close_bt = self._buffer.find('`', match.end())
+            if close_bt != -1:
+              self._buffer = self._buffer[close_bt + 1:]
+              continue
+            else:
+              break  # Wait for closing backtick
+
           self._attrs = parse_xml_attrs(match.group(0))
           self._in_tag = True
           self._buffer = self._buffer[match.end():]
@@ -587,8 +637,10 @@ async def proxy_stream(
 
   # Set up buffer based on speak mode
   buffer = None
-  if config.speak_mode == 'auto' and tts_queue:
-    buffer = SentenceBuffer(on_sentence=tts_queue.add)
+  if config.speak_mode == 'text' and tts_queue:
+    buffer = SentenceBuffer(on_sentence=tts_queue.add, skip_code=True)
+  elif config.speak_mode == 'all' and tts_queue:
+    buffer = SentenceBuffer(on_sentence=tts_queue.add, skip_code=False)
   elif config.speak_mode == 'tags' and tts_queue:
     buffer = MarkerBuffer(on_speech=tts_queue.add)
 
@@ -605,6 +657,7 @@ async def proxy_stream(
 
       # Accumulator for stripping tags across chunks
       tag_buffer = ''
+      in_code_fence = False
 
       async for chunk in response.aiter_bytes():
         if not process or config.speak_mode == 'off':
@@ -635,17 +688,27 @@ async def proxy_stream(
               if delta.get('type') == 'text_delta':
                 text = delta.get('text', '')
                 if text:
-                  # Accumulate and strip tags
-                  tag_buffer += text
-                  stripped = strip_say_tags(tag_buffer)
-                  # Keep potential partial tags in buffer
-                  if '<' in tag_buffer and '>' not in tag_buffer[tag_buffer.rfind('<'):]:
-                    # Partial opening tag at end
-                    last_lt = tag_buffer.rfind('<')
-                    stripped = strip_say_tags(tag_buffer[:last_lt])
-                    tag_buffer = tag_buffer[last_lt:]
-                  else:
+                  # Track code fences
+                  fence_count = text.count('```')
+                  if fence_count % 2 == 1:
+                    in_code_fence = not in_code_fence
+
+                  if in_code_fence:
+                    # Inside code fence - flush tag_buffer, pass through
+                    stripped = strip_say_tags(tag_buffer) + text if tag_buffer else text
                     tag_buffer = ''
+                  else:
+                    # Accumulate and strip tags
+                    tag_buffer += text
+                    stripped = strip_say_tags(tag_buffer)
+                    # Keep potential partial tags in buffer
+                    if '<' in tag_buffer and '>' not in tag_buffer[tag_buffer.rfind('<'):]:
+                      # Partial opening tag at end
+                      last_lt = tag_buffer.rfind('<')
+                      stripped = strip_say_tags(tag_buffer[:last_lt])
+                      tag_buffer = tag_buffer[last_lt:]
+                    else:
+                      tag_buffer = ''
                   delta['text'] = stripped
                   data['delta'] = delta
 
@@ -697,8 +760,8 @@ async def proxy_stream(
                 if block.type == 'text' and delta.get('type') == 'text_delta':
                   text = delta.get('text', '')
                   if text:
-                    # For auto mode, skip JSON-like content
-                    if isinstance(buffer, SentenceBuffer) and is_json_like(block.text):
+                    # For text mode, skip JSON-like content
+                    if isinstance(buffer, SentenceBuffer) and buffer.skip_code and is_json_like(block.text):
                       pass
                     else:
                       try:
@@ -1094,7 +1157,9 @@ async def run_proxy(
                   cb.text = block.get('text', '')
                   # TTS based on speak mode (only if enabled for destination)
                   if active_tts_queue:
-                    if cb.text and config.speak_mode == 'auto' and not is_json_like(cb.text):
+                    if cb.text and config.speak_mode == 'text' and not is_json_like(cb.text):
+                      active_tts_queue.add(cb.text)
+                    elif cb.text and config.speak_mode == 'all':
                       active_tts_queue.add(cb.text)
                     elif cb.text and config.speak_mode == 'tags':
                       requests = extract_speech_requests(cb.text)
@@ -1371,7 +1436,7 @@ async def run_proxy(
       console.print(f'  Upstream:  [dim]{config.anthropic_url}[/dim]')
 
     console.print(f'  TTS:       [cyan]{type(tts_engine).__name__}[/cyan]' + (f' [dim]({tts_voice})[/dim]' if tts_voice else ''))
-    mode_color = {'auto': 'yellow', 'tags': 'green', 'off': 'red'}.get(config.speak_mode, 'white')
+    mode_color = {'text': 'yellow', 'all': 'yellow', 'tags': 'green', 'off': 'red'}.get(config.speak_mode, 'white')
     console.print(f'  Speak:     [{mode_color}]{config.speak_mode}[/{mode_color}]')
     if config.speak_mode == 'tags':
       console.print('             [dim]Use <say>text</say> in responses[/dim]')
@@ -1418,8 +1483,8 @@ def main():
                       help='Path to claudio.yaml config file')
   parser.add_argument('--host', default='127.0.0.1')
   parser.add_argument('--port', '-p', type=int, default=9000)
-  parser.add_argument('--speak', '-s', choices=['auto', 'tags', 'off'], default='tags',
-                      help='Speak mode: auto (all text), tags (<say>...</say> only), off')
+  parser.add_argument('--speak', '-s', choices=['tags', 'text', 'all', 'off'], default='tags',
+                      help='Speak mode: tags (<say> only), text (skip code), all (everything), off')
   parser.add_argument('--tts', '-t', default='auto',
                       help='TTS backend: auto, say, soprano, kokoro, pocket')
   parser.add_argument('--voice', '-v', default=None,
