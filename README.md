@@ -2,6 +2,13 @@
 
 Give Claude a voice with real-time TTS.
 
+
+
+
+https://github.com/user-attachments/assets/f535dcd9-23c2-46df-b77e-3df8ddf65284
+
+
+
 ```bash
 uv tool install git+https://github.com/cleanser-labs/claudio
 claudio init    # picks the best TTS for your system
