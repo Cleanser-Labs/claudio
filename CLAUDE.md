@@ -2,6 +2,10 @@
 
 Voice I/O for Claude Code — local TTS proxy with streaming speech, multi-destination routing, personas, and session logging.
 
+## Why Claudio?
+
+Claude Code is powerful — but silent. You're staring at a terminal while an AI writes, debugs, and refactors your code, and you can't look away or you'll miss what it's doing. Claudio gives Claude a voice. Hear it narrate its work while you keep your eyes on your editor. No more context-switching to read terminal output. It's just a proxy — sits between Claude Code and the API, extracts speech, forwards everything else untouched. Your workflow doesn't change, it just gets an audio channel.
+
 ## Voice Output
 
 Use `<say>` tags for speech. Tags are stripped before display:

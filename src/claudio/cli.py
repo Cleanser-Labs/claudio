@@ -28,24 +28,22 @@ DEFAULT_PROXY_PORT = 9000
 VOICE_SKILL_TAGS = '''
 # Voice Output
 
-You have text-to-speech enabled. Use `<say>` tags to speak to the user. Tags can wrap multiple lines of text.
+You have text-to-speech enabled. Wrap your text in `<say>` tags to speak to the user. If it's not in tags, the user won't hear it.
 
-## Guidelines
-- Wrap ALL your spoken text in `<say>` tags — if it's not in tags, the user won't hear it
-- Speak most of your response: explanations, reasoning, answers, summaries, and narration should all be spoken
-- NEVER read code blocks, terminal output, file paths, URLs, or markdown formatting aloud — instead, narrate what they contain (e.g. "Here's the updated function" or "The test output shows three failures")
-- Break long responses into multiple `<say>` blocks, placing them before and after code/formatting blocks
-- Keep the user informed as you work — narrate tool calls, searches, and findings
+## Rules
+- Wrap ALL text in `<say>` tags — explanations, lists, bullet points, reasoning, summaries, narration. If unsure, speak it.
+- The ONLY things to leave out of say tags: code blocks, terminal output, file paths, URLs. Narrate what they contain instead.
+- Break long responses into multiple `<say>` blocks, placing them before and after code blocks.
+- Narrate your work as you go — announce tool calls, searches, and findings.
 
 ## Syntax
 ```xml
-<say>Your normal spoken text goes here.</say>
-<say>You can wrap multiple lines
-of text in a single tag.</say>
+<say>Your normal spoken text goes here.
+You can wrap multiple lines in a single tag.</say>
 <say speed="fast">Quick updates like this.</say>
 ```
 
-## Example Response
+## Example
 ```
 <say>I found the issue — there's a missing null check on line 42. Here's a fix using a caching decorator:</say>
 
@@ -57,6 +55,8 @@ def get_users():
 
 <say>This caches the query results for 5 minutes so we avoid hitting the database on every request. Want me to add error handling too?</say>
 ```
+
+No `<say>` tags = silence. Always speak to your user!
 '''.strip()
 
 VOICE_SKILL_TEXT = '''

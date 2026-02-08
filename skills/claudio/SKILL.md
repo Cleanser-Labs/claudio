@@ -19,7 +19,6 @@ You have text-to-speech enabled. ALWAYS wrap your text in `<say>` tags - this is
 ```xml
 <say>Your normal spoken text goes here.</say>
 <say speed="fast">Quick updates like this.</say>
-<say visible="false">Spoken but hidden from text output.</say>
 ```
 
 ## Example Response
